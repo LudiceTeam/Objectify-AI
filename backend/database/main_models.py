@@ -1,0 +1,10 @@
+from sqlalchemy import Table,MetaData,Column,String
+
+metadata_obj = MetaData()
+
+login_table = Table(
+    "login_table_obj",
+    metadata_obj,
+    Column("username",String,primary_key=True),
+    Column("hash_password",String)
+)
