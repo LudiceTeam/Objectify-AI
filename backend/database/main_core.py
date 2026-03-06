@@ -66,3 +66,6 @@ async def register(username:str,password:str) -> bool:
                 return True
             except Exception as e:
                 raise Exception(f"Error : {e}")
+
+async def login(username:str,try_psw:str) -> bool:
+    pass
