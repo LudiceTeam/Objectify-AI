@@ -50,3 +50,19 @@ async def is_user_exists(username:str) -> bool:
        if data is not None:
            return True
        return False 
+   
+   
+async def register(username:str,password:str) -> bool:
+    if await is_user_exists(username):
+        return False
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = login_table.insert().values(
+                    username = username,
+                    hash_password = password
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception as e:
+                raise Exception(f"Error : {e}")
