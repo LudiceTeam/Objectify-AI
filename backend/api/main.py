@@ -8,6 +8,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import time
+from database.main_core import register
 
 
 load_dotenv()
@@ -55,7 +56,9 @@ async def register(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:s
     if not verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
-        pass
+        try_reg:bool = await register(req.username,req.password)
+        if not try_reg:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
     

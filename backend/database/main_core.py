@@ -79,3 +79,4 @@ async def login(username:str,try_psw:str) -> bool:
                 return str(data) == try_psw if data is not None else False
             except Exception as e:
                 raise Exception(f"Error : {e}")
+            
