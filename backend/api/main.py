@@ -8,7 +8,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import time
-from database.main_core import register
+from database.main_core import register,login
 
 
 load_dotenv()
@@ -51,8 +51,9 @@ async def main():
 class AuthorizeData(BaseModel):
     username:str
     password:str
-
-async def register(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    
+@app.post("/register")
+async def register_api(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
@@ -62,8 +63,17 @@ async def register(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:s
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
     
-
-
+@app.post("/login")
+async def login_api(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
+    try:
+        try_reg:bool = await login(req.username,req.password)
+        if not try_reg:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
+    except Exception as e:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
+    
 
 
 
