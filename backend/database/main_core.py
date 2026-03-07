@@ -58,9 +58,12 @@ async def register(username:str,password:str) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
+                date_now = datetime.now().date()
                 stmt = login_table.insert().values(
                     username = username,
-                    hash_password = password
+                    hash_password = password,
+                    sub = False,
+                    date_free_sub = date_now
                 )
                 await conn.execute(stmt)
                 return True
