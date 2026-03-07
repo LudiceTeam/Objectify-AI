@@ -28,6 +28,9 @@ def verify_signature(data:dict,rec_signature,x_timestamp:str) -> bool:
     data_str = json.dumps(data_to_verify,sort_keys = True,separators = (',',':'))
     expected = hmac.new(KEY.encode(),data_str.encode(),hashlib.sha256).hexdigest()
     return hmac.compare_digest(rec_signature,expected)
+
+
+
 async def safe_get(req:Request):
     try:
         api = req.headers.get("X-API-KEY")
@@ -42,6 +45,20 @@ async def safe_get(req:Request):
 @app.get("/")
 async def main():
     return "OBJECTIFY-AI API"
+
+
+class AuthorizeData(BaseModel):
+    username:str
+    password:str
+
+async def register(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
+    try:
+        pass
+    except Exception as e:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
+    
 
 
 

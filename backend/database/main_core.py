@@ -68,4 +68,14 @@ async def register(username:str,password:str) -> bool:
                 raise Exception(f"Error : {e}")
 
 async def login(username:str,try_psw:str) -> bool:
-    pass
+    if not await is_user_exists(username):
+        return False
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = select(login_table.c.hash_password).where(login_table.c.username == username)
+                res = await conn.execute(stmt)
+                data = res.scalar_one_or_none()
+                return str(data) == try_psw if data is not None else False
+            except Exception as e:
+                raise Exception(f"Error : {e}")
