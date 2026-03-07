@@ -1,5 +1,6 @@
 from fastapi import Depends,HTTPException,Request,FastAPI,Header,status
 from pydantic import BaseModel
+from config import PROJECT_ROOT
 import uvicorn
 import json
 import hmac
@@ -8,7 +9,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import time
-from database.main_core import register,login
+from backend.database.main_core import register,login
 
 
 load_dotenv()
