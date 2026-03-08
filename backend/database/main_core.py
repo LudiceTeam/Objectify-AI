@@ -82,4 +82,17 @@ async def login(username:str,try_psw:str) -> bool:
                 return str(data) == try_psw if data is not None else False
             except Exception as e:
                 raise Exception(f"Error : {e}")
+
+async def get_user_free_trial_end_date(username:str) -> str | bool:
+    if not await is_user_exists(username):
+        return False  
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(login_table.c.date_free_sub).where(login_table.c.username == username)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return str(data) if data is not None else False 
+        except Exception as e:
+            raise Exception(f"Error : {e}")
+                   
             
