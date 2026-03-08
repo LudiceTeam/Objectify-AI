@@ -96,3 +96,31 @@ async def get_user_free_trial_end_date(username:str) -> str | bool:
             raise Exception(f"Error : {e}")
                    
             
+async def set_sub_to_something(username:str,action:bool) -> bool:# функция которая отписывает и подписывает
+    if not await is_user_exists(username):
+        return False
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = login_table.update().where(login_table.c.username == username).values(
+                    sub = action
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception as e:
+                raise Exception(f"Error : {e}")
+
+async def is_user_subbed(username:str) -> bool | dict:
+    if not await is_user_exists(username):
+        return {
+            "username":username,
+            "Error": "Not found"
+        }
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(login_table.c.sub).where(login_table.c.username == username)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data
+        except Exception as e:
+            raise Exception(f"Error : {e}")
