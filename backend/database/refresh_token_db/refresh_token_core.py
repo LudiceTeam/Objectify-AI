@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select,exc
 from refresh_token_models import refresh_table,metadata_obj
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -40,3 +40,17 @@ async def is_user_exists(username:str) -> bool:
        if data is not None:
            return True
        return False 
+
+async def create_user_refresh_token_db(username:str,token:str):
+    if await is_user_exists(username):
+        return
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = refresh_table.insert().values(
+                    username = username,
+                    token =  token
+                )
+                await conn.execute(stmt)
+            except exc.SQLAlchemyError:
+                raise exc.SQLAlchemyError("Error while executing")

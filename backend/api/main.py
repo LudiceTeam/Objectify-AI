@@ -13,6 +13,12 @@ import time
 from backend.database.main_core import register,login,get_user_free_trial_end_date,set_sub_to_something,is_user_subbed
 from slowapi import Limiter,_rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from datetime import timedelta
+from typing import Optional
+from auth import create_access_token,create_refresh_token
 
 
 load_dotenv()
@@ -70,6 +76,8 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
         try_reg:bool = await register(req.username,req.password)
         if not try_reg:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
+        
+
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error")
     
