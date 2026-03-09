@@ -23,7 +23,7 @@ app = FastAPI()
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
-app.add_middleware(HTTPSRedirectMiddleware)
+#app.add_middleware(HTTPSRedirectMiddleware)
 
 
 
@@ -71,7 +71,7 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
         if not try_reg:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
     except Exception as e:
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error")
     
 @limiter.limit("20/minute")
 @app.post("/login")
@@ -83,7 +83,7 @@ async def login_api(request:Request,req:AuthorizeData,x_signature:str = Header(.
         if not try_reg:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Wrong data")
     except Exception as e:
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error")
 
 class UsernameOnly(BaseModel):
     username:str
@@ -91,9 +91,14 @@ class UsernameOnly(BaseModel):
 @limiter.limit("20/minute")
 @app.get("/get/{username}/date",dependencies=[Depends(safe_get)])
 async def get_user_date_end_api(request:Request,username:str):
-    pass
-
-
+    try:
+        date = await get_user_free_trial_end_date(username)
+        if type(date) == bool:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail = f"User {username} not found")
+        return date
+    except Exception as e:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
 
 
 ######## RUN ######## 
