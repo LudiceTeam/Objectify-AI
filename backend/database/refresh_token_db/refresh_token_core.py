@@ -41,7 +41,7 @@ async def is_user_exists(username:str) -> bool:
            return True
        return False 
 
-async def create_user_refresh_token_db(username:str,token:str):
+async def safe_first_refresh_token(username:str,token:str):
     if await is_user_exists(username):
         return
     async with AsyncSession(async_engine) as conn:
@@ -54,3 +54,15 @@ async def create_user_refresh_token_db(username:str,token:str):
                 await conn.execute(stmt)
             except exc.SQLAlchemyError:
                 raise exc.SQLAlchemyError("Error while executing")
+
+async def get_user_refresh_token(username:str) -> str | bool:
+    if not await is_user_exists(username):
+        return False
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(refresh_table.c.token).where(refresh_table.c.username == username)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else False
+        except Exception as e:
+            raise Exception(f"Error : {e}")
