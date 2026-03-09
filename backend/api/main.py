@@ -203,6 +203,18 @@ async def get_user_date_end_api(request:Request,current_user:dict = Depends(get_
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
+@limiter.limit("20/minute")
+@app.get("/is/{username}/subbed",dependencies=[Depends(safe_get)])
+async def is_user_subbed_api(request:Request,current_user:dict = Depends(get_current_user)):
+    try:
+        subbed_flag = await is_user_subbed(current_user["username"])
+        if type(subbed_flag) == dict:
+            raise HTTPException(status = status.HTTP_404_NOT_FOUND,detail = f"User {current_user["username"]} not found")
+        
+        return subbed_flag
+    except Exception as e:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
 
 ######## RUN ######## 
