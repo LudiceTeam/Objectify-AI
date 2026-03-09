@@ -198,7 +198,7 @@ async def get_user_date_end_api(request:Request,current_user:dict = Depends(get_
     try:
         date = await get_user_free_trial_end_date(current_user["username"])
         if type(date) == bool:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail = f"User {username} not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail = f"User {current_user["username"]} not found")
         return date
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
