@@ -141,12 +141,62 @@ async def refresh_token_api(refresh_token:str):
 
 
 
+async def get_current_user(token: str = Header(..., alias="Authorization")) -> dict:
+    """
+    Проверяет access token и возвращает данные пользователя.
+    Токен должен передаваться в формате: "Bearer <token>"
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        # Проверяем формат токена
+        if not token.startswith("Bearer "):
+            raise credentials_exception
+        
+        # Извлекаем сам токен
+        token = token.replace("Bearer ", "")
+        
+        # Декодируем токен
+        payload = jwt.decode(
+            token, 
+            os.getenv("SECRET_KEY"), 
+            algorithms=[os.getenv("ALGORITHM")]
+        )
+        
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+            
+        # Получаем данные пользователя из БД
+        user_data = await get_user_data(username)
+        if user_data == {}:
+            raise credentials_exception
+            
+        # Добавляем username в данные пользователя
+        user_data["username"] = username
+        
+        return user_data
+        
+    except jwt.ExpiredSignatureError:
+        # Токен истек - клиент должен использовать refresh
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except JWTError:
+        raise credentials_exception
+
 
 @limiter.limit("20/minute")
 @app.get("/get/{username}/date",dependencies=[Depends(safe_get)])
-async def get_user_date_end_api(request:Request,username:str):
+async def get_user_date_end_api(request:Request,current_user:dict = Depends(get_current_user)):
     try:
-        date = await get_user_free_trial_end_date(username)
+        date = await get_user_free_trial_end_date(current_user["username"])
         if type(date) == bool:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail = f"User {username} not found")
         return date
