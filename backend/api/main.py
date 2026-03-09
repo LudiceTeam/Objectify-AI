@@ -10,7 +10,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import time
-from backend.database.main_core import register,login,get_user_free_trial_end_date,set_sub_to_something,is_user_subbed
+from backend.database.main_core import register,login,get_user_free_trial_end_date,set_sub_to_something,is_user_subbed,get_user_data
 from slowapi import Limiter,_rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -19,6 +19,7 @@ from passlib.context import CryptContext
 from datetime import timedelta
 from typing import Optional
 from auth import create_access_token,create_refresh_token
+from backend.database.refresh_token_db.refresh_token_core import safe_first_refresh_token,get_user_refresh_token,update_refresh_token
 
 
 load_dotenv()
@@ -77,24 +78,69 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
         if not try_reg:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
         
+        user_date = await get_user_free_trial_end_date(req.username)
+        
+        token_data = {
+            "sub":req.username,
+            "date":user_date
+        }
+        
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token({"sub":req.username})
+        await safe_first_refresh_token(req.username,refresh_token)
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
 
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error")
-    
+
+
 @limiter.limit("20/minute")
-@app.post("/login")
-async def login_api(request:Request,req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
-        raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
+@app.post("/refresh")
+async def refresh_token_api(refresh_token:str):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Invalid refresh token",
+    )
+    
     try:
-        try_reg:bool = await login(req.username,req.password)
-        if not try_reg:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Wrong data")
-    except Exception as e:
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error")
+        payload = jwt.decode(refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
+        username: str = payload.get("sub")
+        
+        
+        if username is None:
+            raise credentials_exception
+        
+        stored_token = await get_user_refresh_token(username)
+        if stored_token != refresh_token:
+            raise credentials_exception
+        
+        user_data = await get_user_data(username)
+        if user_data == {} or not user_data.get("date"):
+            raise credentials_exception
+                
+    except JWTError:
+        raise credentials_exception
+    
+    
+    new_access_token = create_access_token(user_data)
+    
+    new_refresh_token = create_refresh_token({"sub":username})
+    
+    await update_refresh_token(username,new_refresh_token)
+    
+    
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer"
+    }
 
-class UsernameOnly(BaseModel):
-    username:str
+
+
 
 @limiter.limit("20/minute")
 @app.get("/get/{username}/date",dependencies=[Depends(safe_get)])

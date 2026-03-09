@@ -124,3 +124,18 @@ async def is_user_subbed(username:str) -> bool | dict:
             return data
         except Exception as e:
             raise Exception(f"Error : {e}")
+        
+async def get_user_data(username:str) -> dict:
+    if not await is_user_exists(username):
+        return {}
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(login_table.c.date_free_sub).where(login_table.c.username == username)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return {
+                "sub":username,
+                "date":str(data)
+            }
+        except Exception as e:
+            raise Exception(f"Error : {e}")

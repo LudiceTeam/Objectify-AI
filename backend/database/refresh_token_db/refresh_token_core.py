@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import asyncio
 
 
+
 load_dotenv()
 
 async_engine = create_async_engine(
@@ -54,6 +55,20 @@ async def safe_first_refresh_token(username:str,token:str):
                 await conn.execute(stmt)
             except exc.SQLAlchemyError:
                 raise exc.SQLAlchemyError("Error while executing")
+            
+async def update_refresh_token(username:str,token:str):
+    if await is_user_exists(username):
+        return
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = refresh_table.update().where(refresh_table.c.username == username).values(
+                    token = token
+                )
+                await conn.execute(stmt)
+            except exc.SQLAlchemyError:
+                raise exc.SQLAlchemyError("Error while executing")
+    
 
 async def get_user_refresh_token(username:str) -> str | bool:
     if not await is_user_exists(username):
