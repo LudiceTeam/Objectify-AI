@@ -61,9 +61,9 @@ class AuthorizeData(BaseModel):
     password:str
     
 
-    
+@limiter.limit("20/minute")
 @app.post("/register")
-async def register_api(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def register_api(request:Request,req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
@@ -73,8 +73,9 @@ async def register_api(req:AuthorizeData,x_signature:str = Header(...),x_timesta
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error : {e}")
     
+@limiter.limit("20/minute")
 @app.post("/login")
-async def login_api(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def login_api(request:Request,req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
@@ -87,8 +88,9 @@ async def login_api(req:AuthorizeData,x_signature:str = Header(...),x_timestamp:
 class UsernameOnly(BaseModel):
     username:str
 
-@app.post("/get/{username}/date",dependencies=[Depends(safe_get)])
-async def get_user_date_end_api(username:str):
+@limiter.limit("20/minute")
+@app.get("/get/{username}/date",dependencies=[Depends(safe_get)])
+async def get_user_date_end_api(request:Request,username:str):
     pass
 
 
