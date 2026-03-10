@@ -1,4 +1,4 @@
-from fastapi import Depends,HTTPException,Request,FastAPI,Header,status
+from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from pydantic import BaseModel
 from auth import create_access_token,create_refresh_token
@@ -22,6 +22,7 @@ from datetime import timedelta
 from typing import Optional
 from backend.database.refresh_token_db.refresh_token_core import safe_first_refresh_token,get_user_refresh_token,update_refresh_token
 import bcrypt
+import base64
 
 load_dotenv()
 
@@ -264,13 +265,30 @@ async def subscribe_api(request:Request,current_user:dict = Depends(get_current_
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
-
-@limiter.limit("20/minite")
-@app.get("/idenvify",dependencies=[Depends(safe_get)])
-async def idenify_api(request:Request,image_str:str,current_user:dict = Depends(get_current_user)):
+@limiter.limit("20/minute")
+@app.post("/identify",dependencies=[Depends(safe_get)])
+async def idenify_api(request:Request,image:UploadFile = File(...),current_user:dict = Depends(get_current_user)):
+    
     try:
-        result = await identify_image(image_str)
+        if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported file type"
+            )
+        
+        image_bytes = await image.read()
+        
+        if len(image_bytes) > MAX_IMAGE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="Image too large"
+            )
+            
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+        
+        result = await identify_image(image_base64)
         return result
     except HTTPException:
         raise  
