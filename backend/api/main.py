@@ -35,26 +35,36 @@ app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 
 ######## SECURITY ######## 
-def verify_signature(data:dict,rec_signature,x_timestamp:str) -> bool:
+
+
+async def verify_signature(data: dict, rec_signature, x_timestamp: str) -> bool:
+   
     if time.time() - int(x_timestamp) > 300:
         return False
+    
+   
+    return await asyncio.to_thread(_sync_verify_signature, data, rec_signature)
+
+def _sync_verify_signature(data: dict, rec_signature: str) -> bool:
+   
     KEY = os.getenv("signature")
     data_to_verify = data.copy()
-    data_to_verify.pop("signature",None)
-    data_str = json.dumps(data_to_verify,sort_keys = True,separators = (',',':'))
-    expected = hmac.new(KEY.encode(),data_str.encode(),hashlib.sha256).hexdigest()
-    return hmac.compare_digest(rec_signature,expected)
+    data_to_verify.pop("signature", None)
+    data_str = json.dumps(data_to_verify, sort_keys=True, separators=(',', ':'))
+    expected = hmac.new(KEY.encode(), data_str.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(rec_signature, expected)
 
-
-
-async def safe_get(req:Request):
+async def safe_get(req: Request):
     try:
         api = req.headers.get("X-API-KEY")
-        if not api or not hmac.compare_digest(api,os.getenv("api")):
-            raise HTTPException(status_code = 401,detail = "Invalid API key")
+        if not api:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        
+        if not await asyncio.to_thread(hmac.compare_digest, api, os.getenv("api")):
+            raise HTTPException(status_code=401, detail="Invalid API key")
+            
     except Exception as e:
-        raise HTTPException(status_code = 401,detail = "Invalid api key")
-
+        raise HTTPException(status_code=401, detail="Invalid api key")
 
 ######## ROUTES ######## 
 
@@ -71,7 +81,7 @@ class AuthorizeData(BaseModel):
 @limiter.limit("20/minute")
 @app.post("/register")
 async def register_api(request:Request,req:AuthorizeData,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await  verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
         try_reg:bool = await register(req.username,req.password)
