@@ -84,6 +84,9 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
     if not await  verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
+        if len(req.password) <  8:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Password is to short")
+            
         try_reg:bool = await register(req.username,req.password)
         if not try_reg:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
