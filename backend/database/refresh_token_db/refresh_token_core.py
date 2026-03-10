@@ -1,5 +1,5 @@
 from sqlalchemy import select,exc
-from refresh_token_models import refresh_table,metadata_obj
+from backend.database.refresh_token_db.refresh_token_models import refresh_table,metadata_obj
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import os

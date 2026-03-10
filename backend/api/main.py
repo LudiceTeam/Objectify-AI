@@ -1,6 +1,8 @@
 from fastapi import Depends,HTTPException,Request,FastAPI,Header,status
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from pydantic import BaseModel
+from auth import create_access_token,create_refresh_token
+from open_router import identify_image
 from config import PROJECT_ROOT
 import uvicorn
 import json
@@ -18,9 +20,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import timedelta
 from typing import Optional
-from auth import create_access_token,create_refresh_token
 from backend.database.refresh_token_db.refresh_token_core import safe_first_refresh_token,get_user_refresh_token,update_refresh_token
-
+import bcrypt
 
 load_dotenv()
 
@@ -31,6 +32,7 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
 #app.add_middleware(HTTPSRedirectMiddleware)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 
@@ -53,6 +55,19 @@ def _sync_verify_signature(data: dict, rec_signature: str) -> bool:
     data_str = json.dumps(data_to_verify, sort_keys=True, separators=(',', ':'))
     expected = hmac.new(KEY.encode(), data_str.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(rec_signature, expected)
+
+
+
+async def hash_psw(password: str) -> str:
+    salt = await asyncio.to_thread(bcrypt.gensalt)
+    
+    hashed = await asyncio.to_thread(
+        bcrypt.hashpw,
+        password.encode("utf-8"),
+        salt
+    )
+
+    return hashed.decode()
 
 async def safe_get(req: Request):
     try:
@@ -85,9 +100,10 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
         raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Invalid signature")
     try:
         if len(req.password) <  8:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Password is to short")
-            
-        try_reg:bool = await register(req.username,req.password)
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Password is to short") 
+        
+        
+        try_reg:bool = await register(str(req.username),await hash_psw(req.password))
         if not try_reg:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already existst")
         
@@ -106,14 +122,16 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
             "refresh_token": refresh_token,
             "token_type": "bearer"
         }
-
+    except HTTPException:
+        raise 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = f"Server error")
 
 
 @limiter.limit("20/minute")
 @app.post("/refresh")
-async def refresh_token_api(refresh_token:str):
+async def refresh_token_api(request:Request,refresh_token:str):
     credentials_exception = HTTPException(
         status_code=401,
         detail="Invalid refresh token",
@@ -213,6 +231,8 @@ async def get_user_date_end_api(request:Request,current_user:dict = Depends(get_
         if type(date) == bool:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail = f"User {current_user["username"]} not found")
         return date
+    except HTTPException:
+        raise 
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
@@ -225,18 +245,35 @@ async def is_user_subbed_api(request:Request,current_user:dict = Depends(get_cur
             raise HTTPException(status_code = status.HTTP_404_NOT_FOUND,detail = f"User {current_user["username"]} not found")
         
         return subbed_flag
+    except HTTPException:
+        raise 
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 @limiter.limit("20/minute")
 @app.get("/subscribe",dependencies=[Depends(safe_get)])
-async def subscribe_api(requets:Request,current_user:dict = Depends(get_current_user)):
+async def subscribe_api(request:Request,current_user:dict = Depends(get_current_user)):
     try:
         username = current_user["username"]
         res = await set_sub_to_something(username,True)
         if not res:
             raise HTTPException(status_code = status.HTTP_404_NOT_FOUND,detail = f"User : {username} not found")
-        
+    except HTTPException:
+        raise      
+    except Exception as e:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+
+
+@limiter.limit("20/minite")
+@app.get("/idenvify",dependencies=[Depends(safe_get)])
+async def idenify_api(request:Request,image_str:str,current_user:dict = Depends(get_current_user)):
+    try:
+        result = await identify_image(image_str)
+        return result
+    except HTTPException:
+        raise  
     except Exception as e:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
@@ -244,4 +281,4 @@ async def subscribe_api(requets:Request,current_user:dict = Depends(get_current_
 ######## RUN ######## 
 
 if __name__ == "__main__":
-    uvicorn.run(app,host = "0.0.0.0",port = 8080)
+    uvicorn.run(app,host = "0.0.0.0",port = 8081)

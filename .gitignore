@@ -1,3 +1,4 @@
 .env
 venv
 backend/api/.env
+backend/database/.env

@@ -18,20 +18,10 @@ client = AsyncOpenAI(
 
 async def identify_image(
     base64_image: str,
-    api_key: str,
     model: str = "google/gemini-2.5-flash",
     image_format: str = "jpeg"
 ):
-    """
-    Определяет объект на изображении по base64 строке
-    """
-    client = AsyncOpenAI(
-        api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        timeout=60.0,
-        max_retries=2
-    )
-    
+
     prompt = """Ты - экспертный определитель объектов. Рассмотри изображение и определи, что на нем.
 
 Требования к ответу:
