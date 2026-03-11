@@ -131,7 +131,7 @@ async def register_api(request:Request,req:AuthorizeData,x_signature:str = Heade
 
 
 @limiter.limit("20/minute")
-@app.post("/refresh")
+@app.post("/refresh",dependencies=[Depends(safe_get)])
 async def refresh_token_api(request:Request,refresh_token:str):
     credentials_exception = HTTPException(
         status_code=401,

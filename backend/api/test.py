@@ -67,4 +67,3 @@ def req2():
         print(response.text)
 
 
-req2()
