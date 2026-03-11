@@ -139,3 +139,6 @@ async def get_user_data(username:str) -> dict:
             }
         except Exception as e:
             raise Exception(f"Error : {e}")
+
+async def is_user_date_ended(username:str) -> bool:
+    pass
